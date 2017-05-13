@@ -32,3 +32,6 @@ cut_DT <- DT[admissionDurationDays >= 7 & admissionDurationDays < 100]
 # scale admissions to n points
   cut_DT[, c("flag_for_processing") := (ifelse(dateplustime1 < (min(dateplustime1) + (admissionDuration[1] - timePeriodSeconds)), 1, 0)) , by=.(ID, admissionNumberFlag)]
   
+  process_DT <- data.table(cut_DT$ID, cut_DT$admissionNumberFlag, cut_DT$dateplustime1, cut_DT$yyyy); colnames(process_DT) <- c("ID", "admissionNumberFlag", "dateplustime1", "yyyy")
+  process_DT[, c("scaled_dateplustime1") := (dateplustime1 - min(dateplustime1)) / (max(dateplustime1) - min(dateplustime1)) , by=.(ID, admissionNumberFlag)]
+  
