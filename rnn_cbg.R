@@ -19,6 +19,16 @@ cut_DT <- DT[admissionDurationDays >= 7 & admissionDurationDays < 100]
   timePeriodDays <- 1
   timePeriodSeconds <- timePeriodDays * (60*60*24)
   
-  cut_DT[, c("flagWithinLastTime") := (ifelse(dateplustime1 > (min(dateplustime1) + (admissionDuration - timePeriodSeconds)), 1, 0)) , by=.(ID, admissionNumberFlag)]
+  cut_DT[, c("flagWithinLastTime") := (ifelse(dateplustime1 > (min(dateplustime1) + (admissionDuration[1] - timePeriodSeconds)), 1, 0)) , by=.(ID, admissionNumberFlag)]
+  cut_DT[, c("lessThan4_withinLastTime") := (ifelse(flagWithinLastTime == 1 & min(yyyy)<4, 1, 0)), by=.(ID, admissionNumberFlag)]
+  cut_DT[, c("lessThan3_withinLastTime") := (ifelse(flagWithinLastTime == 1 & min(yyyy)<3, 1, 0)), by=.(ID, admissionNumberFlag)]
+  
+  cut_DT[, c("flagLastCBG") := (ifelse(CBGinSequencePerAdmission == max(CBGinSequencePerAdmission), 1, 0)), by=.(ID, admissionNumberFlag)]
+  
+  
+  report_y <- data.frame(cut_DT[flagLastCBG == 1]$ID, cut_DT[flagLastCBG == 1]$lessThan4_withinLastTime)
+  colnames(report_y) <- c("ID", "hypo_4")
   
 # scale admissions to n points
+  
+  
