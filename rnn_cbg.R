@@ -13,7 +13,7 @@ DT<-data.table(DT)
 # firstRowAdmissions<-DT[CBGinSequencePerAdmission==1]
 
 # cut to admissions with ==20 CBG values
-cut_DT <- DT[admissionDurationDays >= 7 & admissionDurationDays < 100]
+cut_DT <- DT[admissionDurationDays >= 50 & admissionDurationDays < 100]
 
 # take off last time period for calculation of y
   timePeriodDays <- 1
@@ -35,3 +35,7 @@ cut_DT <- DT[admissionDurationDays >= 7 & admissionDurationDays < 100]
   process_DT <- data.table(cut_DT$ID, cut_DT$admissionNumberFlag, cut_DT$dateplustime1, cut_DT$yyyy); colnames(process_DT) <- c("ID", "admissionNumberFlag", "dateplustime1", "yyyy")
   process_DT[, c("scaled_dateplustime1") := (dateplustime1 - min(dateplustime1)) / (max(dateplustime1) - min(dateplustime1)) , by=.(ID, admissionNumberFlag)]
   
+  # plot 1000 points per admission
+  # generate for each admission, and write into a row
+  # y = approx(x$scaled_dateplustime1, x$yyyy, n = 1000)
+
