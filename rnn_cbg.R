@@ -15,8 +15,10 @@ DT<-data.table(DT)
 # cut to admissions with ==20 CBG values
 cut_DT <- DT[admissionDurationDays >= 7 & admissionDurationDays < 100]
 
-# take off last day for calculation of y
+# take off last time period for calculation of y
+  timePeriodDays <- 1
+  timePeriodSeconds <- timePeriodDays * (60*60*24)
+  
+  cut_DT[, c("flagWithinLastTime") := (ifelse(dateplustime1 > (min(dateplustime1) + (admissionDuration - timePeriodSeconds)), 1, 0)) , by=.(ID, admissionNumberFlag)]
+  
 # scale admissions to n points
-
-
-
