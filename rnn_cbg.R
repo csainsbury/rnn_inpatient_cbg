@@ -35,7 +35,50 @@ cut_DT <- DT[admissionDurationDays >= 50 & admissionDurationDays < 100]
   process_DT <- data.table(cut_DT$ID, cut_DT$admissionNumberFlag, cut_DT$dateplustime1, cut_DT$yyyy); colnames(process_DT) <- c("ID", "admissionNumberFlag", "dateplustime1", "yyyy")
   process_DT[, c("scaled_dateplustime1") := (dateplustime1 - min(dateplustime1)) / (max(dateplustime1) - min(dateplustime1)) , by=.(ID, admissionNumberFlag)]
   
+  n_points = 1000
+  process_X <- data.frame(matrix(nrow = 0, ncol = n_points + 2))
+  
+  idVector <- unique(process_DT$ID)
+
+  for (i in seq(1, length(idList), 1)) {
+    
+    if (i%%100 == 0) {print(i)}
+    
+    id_sub <- process_DT[ID == idList[i]]
+    
+      admissionVector <- as.numeric(levels(as.data.frame(table(id_sub$admissionNumberFlag))$Var1))[as.data.frame(table(id_sub$admissionNumberFlag))$Var1]
+      
+      for (j in seq(1, length(admissionVector), 1)) {
+        
+        id_admission_sub <- id_sub[admissionNumberFlag == admissionVector[j]]
+        
+        output_X <- approx(id_admission_sub$scaled_dateplustime1, id_admission_sub$yyyy, n = n_points)
+        
+        # first col = ID, second col = admissionFlag, rest is cbg values
+        concat_X <- c(idList[i], admissionVector[j], output_X[[2]])
+        
+        process_X <- rbind(process_X, concat_X)
+        
+        
+      }
+      
+  }
   # plot 1000 points per admission
   # generate for each admission, and write into a row
   # y = approx(x$scaled_dateplustime1, x$yyyy, n = 1000)
 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
