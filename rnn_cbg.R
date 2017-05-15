@@ -25,7 +25,6 @@ cut_DT <- DT[admissionDurationDays >= 50 & admissionDurationDays < 100]
   
   cut_DT[, c("flagLastCBG") := (ifelse(CBGinSequencePerAdmission == max(CBGinSequencePerAdmission), 1, 0)), by=.(ID, admissionNumberFlag)]
   
-  
   report_y <- data.frame(cut_DT[flagLastCBG == 1]$ID, cut_DT[flagLastCBG == 1]$lessThan4_withinLastTime)
   colnames(report_y) <- c("ID", "hypo_4")
   
@@ -66,7 +65,9 @@ cut_DT <- DT[admissionDurationDays >= 50 & admissionDurationDays < 100]
   # generate for each admission, and write into a row
   # y = approx(x$scaled_dateplustime1, x$yyyy, n = 1000)
 
-  
+  # ensure that report_y in same order as process_X
+  id_diff <- process_X[, 1] - report_y[, 1]
+  ifelse(sum(id_diff) > 0, sum(id_diff), print("id match"))
   
   
   
