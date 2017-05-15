@@ -59,7 +59,6 @@ cut_DT <- DT[admissionDurationDays >= 50 & admissionDurationDays < 100]
         
         process_X <- rbind(process_X, concat_X)
         
-        
       }
       
   }
