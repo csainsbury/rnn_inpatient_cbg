@@ -13,7 +13,7 @@ DT<-data.table(DT)
 # firstRowAdmissions<-DT[CBGinSequencePerAdmission==1]
 
 # cut to admissions with ==20 CBG values
-cut_DT <- DT[admissionDurationDays >= 50 & admissionDurationDays < 100]
+cut_DT <- DT[admissionDurationDays >= 5 & admissionDurationDays < 30]
 
 # take off last time period for calculation of y
   timePeriodDays <- 1
@@ -37,13 +37,22 @@ cut_DT <- DT[admissionDurationDays >= 50 & admissionDurationDays < 100]
   
   cut_DT[, c("flagLastCBG") := (ifelse(CBGinSequencePerAdmission == max(CBGinSequencePerAdmission), 1, 0)), by=.(ID, admissionNumberFlag)]
   
-  report_y <- data.frame(cut_DT[flagLastCBG == 1]$ID, cut_DT[flagLastCBG == 1]$lessThan4_withinLastTime)
-  colnames(report_y) <- c("ID", "hypo_4")
+  report_y_hypo4 <- data.frame(cut_DT[flagLastCBG == 1]$ID, cut_DT[flagLastCBG == 1]$lessThan4_withinLastTime)
+  colnames(report_y_hypo4) <- c("ID", "hypo_4")
+  report_y_hypo3 <- data.frame(cut_DT[flagLastCBG == 1]$ID, cut_DT[flagLastCBG == 1]$lessThan3_withinLastTime)
+  colnames(report_y_hypo3) <- c("ID", "hypo_3")
   
 # scale admissions to n points
-  cut_DT[, c("flag_for_processing") := (ifelse(dateplustime1 < (min(dateplustime1) + (admissionDuration[1] - timePeriodSeconds)), 1, 0)) , by=.(ID, admissionNumberFlag)]
+#  cut_DT[, c("flag_for_processing") := (ifelse(dateplustime1 < (min(dateplustime1) + (admissionDuration[1] - timePeriodSeconds)), 1, 0)) , by=.(ID, admissionNumberFlag)]
   
-  process_DT <- data.table(cut_DT$ID, cut_DT$admissionNumberFlag, cut_DT$dateplustime1, cut_DT$yyyy); colnames(process_DT) <- c("ID", "admissionNumberFlag", "dateplustime1", "yyyy")
+  cut_DT_processSegment <- cut_DT[flagWithinLastTime == 0]
+  process_DT <- data.table(cut_DT_processSegment$ID, cut_DT_processSegment$admissionNumberFlag, cut_DT_processSegment$dateplustime1, cut_DT_processSegment$yyyy); colnames(process_DT) <- c("ID", "admissionNumberFlag", "dateplustime1", "yyyy")
+  
+  # remove the unusual admissions where all CBGs occur in last day/time period
+  # ensure that at least 5 cbgs to work with
+  process_DT[, c("nrows_post_lasttimeRemoval") := .N , by=.(ID, admissionNumberFlag)]
+  process_DT <- process_DT[nrows_post_lasttimeRemoval > 4]
+  
   process_DT[, c("scaled_dateplustime1") := (dateplustime1 - min(dateplustime1)) / (max(dateplustime1) - min(dateplustime1)) , by=.(ID, admissionNumberFlag)]
   
   n_points = 1000
@@ -51,11 +60,11 @@ cut_DT <- DT[admissionDurationDays >= 50 & admissionDurationDays < 100]
   
   idVector <- unique(process_DT$ID)
 
-  for (i in seq(1, length(idList), 1)) {
+  for (i in seq(1, length(idVector), 1)) {
     
     if (i%%100 == 0) {print(i)}
     
-    id_sub <- process_DT[ID == idList[i]]
+    id_sub <- process_DT[ID == idVector[i]]
     
       admissionVector <- as.numeric(levels(as.data.frame(table(id_sub$admissionNumberFlag))$Var1))[as.data.frame(table(id_sub$admissionNumberFlag))$Var1]
       
@@ -66,7 +75,7 @@ cut_DT <- DT[admissionDurationDays >= 50 & admissionDurationDays < 100]
         output_X <- approx(id_admission_sub$scaled_dateplustime1, id_admission_sub$yyyy, n = n_points)
         
         # first col = ID, second col = admissionFlag, rest is cbg values
-        concat_X <- c(idList[i], admissionVector[j], output_X[[2]])
+        concat_X <- c(idVector[i], admissionVector[j], output_X[[2]])
         
         process_X <- rbind(process_X, concat_X)
         
@@ -78,15 +87,24 @@ cut_DT <- DT[admissionDurationDays >= 50 & admissionDurationDays < 100]
   # y = approx(x$scaled_dateplustime1, x$yyyy, n = 1000)
 
   # ensure that report_y in same order as process_X
-  id_diff <- process_X[, 1] - report_y[, 1]
+  id_diff <- process_X[, 1] - report_y_hypo4[, 1]
   ifelse(sum(id_diff) > 0, sum(id_diff), print("id match"))
   
   # save out input data (X) and (y)
   save_X <- process_X[, -1]
   save_X <- save_X[, -1]
   
-  save_y <- report_y$hypo_4
+  save_y_hypo4 <- report_y_hypo4$hypo_4
+  save_y_hypo3 <- report_y_hypo3$hypo_3
   
+  ## writeout files for tensorflow
+  # write out sequence for analysis
+  write.table(save_X, file = "~/R/_workingDirectory/rnn_inpatient_cbg/data/15_20days_processX.csv", sep=",", row.names = FALSE)
+  
+  
+  # write out dep variable (y)
+  write.table(save_y_hypo4, file = "~/R/_workingDirectory/rnn_inpatient_cbg/data/15_20days_report_y_hypo4.csv", sep = ",", row.names = FALSE)
+  write.table(save_y_hypo3, file = "~/R/_workingDirectory/rnn_inpatient_cbg/data/15_20days_report_y_hypo3.csv", sep = ",", row.names = FALSE)
   
   
   
