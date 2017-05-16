@@ -19,9 +19,21 @@ cut_DT <- DT[admissionDurationDays >= 50 & admissionDurationDays < 100]
   timePeriodDays <- 1
   timePeriodSeconds <- timePeriodDays * (60*60*24)
   
+  flag_CBGbelow_n_inLastTime <- function(flagWithinLastTime, yyyy, n) {
+    
+    lastimeValues <- yyyy[flagWithinLastTime == 1]
+    returnVals <- ifelse(lastimeValues < n, 1, 0)
+    
+    flagPositiveResult <- ifelse(sum(returnVals) > 0, 1, 0)
+    
+    return(rep(flagPositiveResult, length(yyyy)))
+  }
+  
   cut_DT[, c("flagWithinLastTime") := (ifelse(dateplustime1 >= (min(dateplustime1) + (admissionDuration[1] - timePeriodSeconds)), 1, 0)) , by=.(ID, admissionNumberFlag)]
-  cut_DT[, c("lessThan4_withinLastTime") := (ifelse(flagWithinLastTime == 1 & min(yyyy)<4, 1, 0)), by=.(ID, admissionNumberFlag)]
-  cut_DT[, c("lessThan3_withinLastTime") := (ifelse(flagWithinLastTime == 1 & min(yyyy)<3, 1, 0)), by=.(ID, admissionNumberFlag)]
+  cut_DT[, c("lessThan4_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 4), by=.(ID, admissionNumberFlag)]
+  cut_DT[, c("lessThan3_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 3), by=.(ID, admissionNumberFlag)]
+  cut_DT[, c("lessThan2p88_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 2.88), by=.(ID, admissionNumberFlag)]
+  
   
   cut_DT[, c("flagLastCBG") := (ifelse(CBGinSequencePerAdmission == max(CBGinSequencePerAdmission), 1, 0)), by=.(ID, admissionNumberFlag)]
   
@@ -69,6 +81,11 @@ cut_DT <- DT[admissionDurationDays >= 50 & admissionDurationDays < 100]
   id_diff <- process_X[, 1] - report_y[, 1]
   ifelse(sum(id_diff) > 0, sum(id_diff), print("id match"))
   
+  # save out input data (X) and (y)
+  save_X <- process_X[, -1]
+  save_X <- save_X[, -1]
+  
+  save_y <- report_y$hypo_4
   
   
   
