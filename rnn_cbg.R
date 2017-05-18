@@ -17,7 +17,15 @@ diagnosisDataset<-read.csv("~/R/GlCoSy/SDsource/demogALL.txt", quote = "",
                            row.names = NULL, 
                            stringsAsFactors = FALSE)
 diagnosisDataset$deathDateUnix <- returnUnixDateTime(diagnosisDataset$DeathDate)
-deathFrame <- data.frame(diagnosisDataset$PatId, returnUnixDateTime$deathDateUnix)
+deathFrame <- data.frame(diagnosisDataset$PatId, diagnosisDataset$deathDateUnix)
+colnames(deathFrame) <- c("ID", "deathDateUnix")
+
+deathFrame$deathDateUnix[is.na(deathFrame$deathDateUnix)] <- 0
+deathFrame$isDead <- ifelse(deathFrame$deathDateUnix > 0, 1, 0)
+deathFrame$ID<-as.numeric(levels(deathFrame$ID))[deathFrame$ID]; deathFrame$ID <- round(deathFrame$ID, 0)
+deathFrame$ID[is.na(deathFrame$ID)] <- 0
+
+deathFrameDT <- data.table(deathFrame)
 # firstRowAdmissions<-DT[CBGinSequencePerAdmission==1]
 
 # cut to admissions with ==20 CBG values
@@ -62,11 +70,29 @@ deathFrame <- data.frame(diagnosisDataset$PatId, returnUnixDateTime$deathDateUni
     return(rep(flagPositiveResult, length(yyyy)))
   }
   
+  isDead_n_years <- function(cut_DT_ID, dateplustime1, n) {
+    
+    if (nrow(deathFrameDT[ID == cut_DT_ID]) > 0) {
+    isDead <- deathFrameDT[ID == cut_DT_ID]$isDead
+    deathDate <- deathFrameDT[ID == cut_DT_ID]$deathDateUnix
+    
+    returnValue <- ifelse(deathDate > 0 & deathDate > (min(dateplustime1) + n * (60*60*24*365.25)), 1, 0)
+    
+    returnValue <- rep(returnValue, length(dateplustime1))
+    }
+    
+    if (nrow(deathFrameDT[ID == cut_DT_ID]) == 0) { returnValue <- rep(0, length(dateplustime1)) }
+    
+    return(returnValue)
+    
+  }
+  
   cut_DT[, c("flagWithinLastTime") := (ifelse(dateplustime1 >= (min(dateplustime1) + ((max(dateplustime1) - min(dateplustime1)) - timePeriodSeconds)), 1, 0)) , by=.(ID, admissionNumberFlag)]
   cut_DT[, c("lessThan4_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 4), by=.(ID, admissionNumberFlag)]
   cut_DT[, c("lessThan3_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 3), by=.(ID, admissionNumberFlag)]
   cut_DT[, c("lessThan2p88_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 2.88), by=.(ID, admissionNumberFlag)]
   
+  cut_DT[, c("isDead_1y") := isDead_n_years(ID, dateplustime1, 1), by=.(ID, admissionNumberFlag)]
   
   cut_DT[, c("flagLastCBG") := (ifelse(CBGinSequencePerAdmission == length(yyyy), 1, 0)), by=.(ID, admissionNumberFlag)]
   
