@@ -45,13 +45,13 @@ cut_DT <- cut_DT[flagWithinNdays == 1 & numberOfCBGsBeforeDayN > 1]
     return(rep(flagPositiveResult, length(yyyy)))
   }
   
-  cut_DT[, c("flagWithinLastTime") := (ifelse(dateplustime1 >= (min(dateplustime1) + (admissionDuration[1] - timePeriodSeconds)), 1, 0)) , by=.(ID, admissionNumberFlag)]
+  cut_DT[, c("flagWithinLastTime") := (ifelse(dateplustime1 >= (min(dateplustime1) + ((max(dateplustime1) - min(dateplustime1)) - timePeriodSeconds)), 1, 0)) , by=.(ID, admissionNumberFlag)]
   cut_DT[, c("lessThan4_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 4), by=.(ID, admissionNumberFlag)]
   cut_DT[, c("lessThan3_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 3), by=.(ID, admissionNumberFlag)]
   cut_DT[, c("lessThan2p88_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 2.88), by=.(ID, admissionNumberFlag)]
   
   
-  cut_DT[, c("flagLastCBG") := (ifelse(CBGinSequencePerAdmission == max(CBGinSequencePerAdmission), 1, 0)), by=.(ID, admissionNumberFlag)]
+  cut_DT[, c("flagLastCBG") := (ifelse(CBGinSequencePerAdmission == length(yyyy), 1, 0)), by=.(ID, admissionNumberFlag)]
   
   report_y_hypo4 <- data.frame(cut_DT[flagLastCBG == 1]$ID, cut_DT[flagLastCBG == 1]$lessThan4_withinLastTime)
   colnames(report_y_hypo4) <- c("ID", "hypo_4")
@@ -114,6 +114,9 @@ cut_DT <- cut_DT[flagWithinNdays == 1 & numberOfCBGsBeforeDayN > 1]
   
   save_y_hypo4 <- report_y_hypo4$hypo_4
   save_y_hypo3 <- report_y_hypo3$hypo_3
+  
+  
+  # randomisingSequence <- runif(nrow(report_y_hypo4), 0, 1)
   
   ## writeout files for tensorflow
   # write out sequence for analysis
