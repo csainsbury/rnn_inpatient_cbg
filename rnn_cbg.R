@@ -1,11 +1,5 @@
 library(data.table)
 
-# load data
-# CHIsetCombined <- read.csv("../_workingSourceData/CHIsetCombined_09-15a.csv",header=TRUE,row.names=NULL)
-CHIsetCombined <- read.csv("~/R/GlCoSy/source/CHIsetCombined_CORE_allAdult_09-16.csv",header=TRUE,row.names=NULL)
-interestSet<-CHIsetCombined
-interestSet<- interestSet
-
 ## DM
 summaryOutputName <- paste("~/R/GlCoSy/source/DTwithPerIDdata.csv",sep="")
 DT<-read.csv(summaryOutputName, header=TRUE , sep="," , row.names=NULL)
@@ -13,7 +7,29 @@ DT<-data.table(DT)
 # firstRowAdmissions<-DT[CBGinSequencePerAdmission==1]
 
 # cut to admissions with ==20 CBG values
-cut_DT <- DT[admissionDurationDays >= 5 & admissionDurationDays < 30]
+# cut_DT <- DT[admissionDurationDays >= 5 & admissionDurationDays < 30 & nCBGperAdmission > 20]
+
+## need to be able to take all admissions greater than n days and look at hypo probability on day n
+dayN_ofInterest = 5
+
+dayN_ofInterestSeconds <- dayN_ofInterest * (60*60*24)
+
+cut_DT <- DT[admissionDurationDays > dayN_ofInterest]
+
+cut_DT[, c("flagWithinNdays") := (ifelse(dateplustime1 < (min(dateplustime1) + dayN_ofInterestSeconds), 1, 0)) , by=.(ID, admissionNumberFlag)]
+
+numberOfCBGsBeforeDayN <- function(dateplustime1) {
+   x <- dateplustime1[dateplustime1 < (min(dateplustime1) + (dayN_ofInterestSeconds - (60*60*24)))]
+   return(length(x))
+}
+
+cut_DT[, c("numberOfCBGsBeforeDayN") := numberOfCBGsBeforeDayN(dateplustime1) , by=.(ID, admissionNumberFlag)]
+
+cut_DT <- cut_DT[flagWithinNdays == 1 & numberOfCBGsBeforeDayN > 1]
+
+
+# optional cut for type of DM
+# cut_DT <- cut_DT[DiabetesMellitusType_Mapped == "Type 1 Diabetes Mellitus"]
 
 # take off last time period for calculation of y
   timePeriodDays <- 1
@@ -50,12 +66,12 @@ cut_DT <- DT[admissionDurationDays >= 5 & admissionDurationDays < 30]
   
   # remove the unusual admissions where all CBGs occur in last day/time period
   # ensure that at least 5 cbgs to work with
-  process_DT[, c("nrows_post_lasttimeRemoval") := .N , by=.(ID, admissionNumberFlag)]
-  process_DT <- process_DT[nrows_post_lasttimeRemoval > 4]
+  # process_DT[, c("nrows_post_lasttimeRemoval") := .N , by=.(ID, admissionNumberFlag)]
+  # process_DT <- process_DT[nrows_post_lasttimeRemoval > 4]
   
   process_DT[, c("scaled_dateplustime1") := (dateplustime1 - min(dateplustime1)) / (max(dateplustime1) - min(dateplustime1)) , by=.(ID, admissionNumberFlag)]
   
-  n_points = 1000
+  n_points = 500
   process_X <- data.frame(matrix(nrow = 0, ncol = n_points + 2))
   
   idVector <- unique(process_DT$ID)
@@ -94,17 +110,19 @@ cut_DT <- DT[admissionDurationDays >= 5 & admissionDurationDays < 30]
   save_X <- process_X[, -1]
   save_X <- save_X[, -1]
   
+  save_X <- round(save_X, 2)
+  
   save_y_hypo4 <- report_y_hypo4$hypo_4
   save_y_hypo3 <- report_y_hypo3$hypo_3
   
   ## writeout files for tensorflow
   # write out sequence for analysis
-  write.table(save_X, file = "~/R/_workingDirectory/rnn_inpatient_cbg/data/15_20days_processX.csv", sep=",", row.names = FALSE)
+  write.table(save_X, file = "~/R/_workingDirectory/rnn_inpatient_cbg/data/5thday_processX.csv", sep=",", row.names = FALSE)
   
   
   # write out dep variable (y)
-  write.table(save_y_hypo4, file = "~/R/_workingDirectory/rnn_inpatient_cbg/data/15_20days_report_y_hypo4.csv", sep = ",", row.names = FALSE)
-  write.table(save_y_hypo3, file = "~/R/_workingDirectory/rnn_inpatient_cbg/data/15_20days_report_y_hypo3.csv", sep = ",", row.names = FALSE)
+  write.table(save_y_hypo4, file = "~/R/_workingDirectory/rnn_inpatient_cbg/data/5thday_report_y_hypo4.csv", sep = ",", row.names = FALSE)
+  write.table(save_y_hypo3, file = "~/R/_workingDirectory/rnn_inpatient_cbg/data/5thday_report_y_hypo3.csv", sep = ",", row.names = FALSE)
   
   
   
