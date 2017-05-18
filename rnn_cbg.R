@@ -13,26 +13,26 @@ DT<-read.csv(summaryOutputName, header=TRUE , sep="," , row.names=NULL)
 DT<-data.table(DT)
 
 # diagnosisDataset<-read.csv("../GlCoSy/SDsource/diagnosisDateDeathDate.txt")
-diagnosisDataset<-read.csv("~/R/GlCoSy/SDsource/demogALL.txt", quote = "", 
-                           row.names = NULL, 
-                           stringsAsFactors = FALSE)
-diagnosisDataset$deathDateUnix <- returnUnixDateTime(diagnosisDataset$DeathDate)
-deathFrame <- data.frame(diagnosisDataset$PatId, diagnosisDataset$deathDateUnix)
-colnames(deathFrame) <- c("ID", "deathDateUnix")
-
-deathFrame$deathDateUnix[is.na(deathFrame$deathDateUnix)] <- 0
-deathFrame$isDead <- ifelse(deathFrame$deathDateUnix > 0, 1, 0)
-deathFrame$ID<-as.numeric(levels(deathFrame$ID))[deathFrame$ID]; deathFrame$ID <- round(deathFrame$ID, 0)
-deathFrame$ID[is.na(deathFrame$ID)] <- 0
-
-deathFrameDT <- data.table(deathFrame)
+# diagnosisDataset<-read.csv("~/R/GlCoSy/SDsource/demogALL.txt", quote = "", 
+#                            row.names = NULL, 
+#                            stringsAsFactors = FALSE)
+# diagnosisDataset$deathDateUnix <- returnUnixDateTime(diagnosisDataset$DeathDate)
+# deathFrame <- data.frame(diagnosisDataset$PatId, diagnosisDataset$deathDateUnix)
+# colnames(deathFrame) <- c("ID", "deathDateUnix")
+# 
+# deathFrame$deathDateUnix[is.na(deathFrame$deathDateUnix)] <- 0
+# deathFrame$isDead <- ifelse(deathFrame$deathDateUnix > 0, 1, 0)
+# deathFrame$ID<-as.numeric(levels(deathFrame$ID))[deathFrame$ID]; deathFrame$ID <- round(deathFrame$ID, 0)
+# deathFrame$ID[is.na(deathFrame$ID)] <- 0
+# 
+# deathFrameDT <- data.table(deathFrame)
 # firstRowAdmissions<-DT[CBGinSequencePerAdmission==1]
 
 # cut to admissions with ==20 CBG values
 # cut_DT <- DT[admissionDurationDays >= 5 & admissionDurationDays < 30 & nCBGperAdmission > 20]
 
       ## need to be able to take all admissions greater than n days and look at hypo probability on day n
-      dayN_ofInterest = 5
+      dayN_ofInterest = 10
       dayN_ofInterestSeconds <- dayN_ofInterest * (60*60*24)
       
       # limit dataset to admissions that will have the required data ie at least 5 days of data
@@ -76,7 +76,7 @@ deathFrameDT <- data.table(deathFrame)
     isDead <- deathFrameDT[ID == cut_DT_ID]$isDead
     deathDate <- deathFrameDT[ID == cut_DT_ID]$deathDateUnix
     
-    returnValue <- ifelse(deathDate > 0 & deathDate > (min(dateplustime1) + n * (60*60*24*365.25)), 1, 0)
+    returnValue <- ifelse(deathDate > 0 & deathDate <= (min(dateplustime1) + n * (60*60*24*365.25)), 1, 0)
     
     returnValue <- rep(returnValue, length(dateplustime1))
     }
@@ -92,17 +92,25 @@ deathFrameDT <- data.table(deathFrame)
   cut_DT[, c("lessThan3_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 3), by=.(ID, admissionNumberFlag)]
   cut_DT[, c("lessThan2p88_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 2.88), by=.(ID, admissionNumberFlag)]
   
-  cut_DT[, c("isDead_1y") := isDead_n_years(ID, dateplustime1, 1), by=.(ID, admissionNumberFlag)]
-  
+  # for death analysis run this
+  ##****##  # cut_DT[, c("isDead_3y") := isDead_n_years(ID, dateplustime1, 3), by=.(ID, admissionNumberFlag)]
+  ##****##  # cut_DT[, c("firstCBGperID") := (dateplustime1 == min(dateplustime1)), by=.(ID)]
+  ##****##  # cut_DT[, c("flagPartOfFirstAdmission") := ifelse(max(firstCBGperID) == 1, 1, 0), by=.(ID, admissionNumberFlag)]
+
   cut_DT[, c("flagLastCBG") := (ifelse(CBGinSequencePerAdmission == length(yyyy), 1, 0)), by=.(ID, admissionNumberFlag)]
   
   report_y_hypo4 <- data.frame(cut_DT[flagLastCBG == 1]$ID, cut_DT[flagLastCBG == 1]$lessThan4_withinLastTime)
   colnames(report_y_hypo4) <- c("ID", "hypo_4")
   report_y_hypo3 <- data.frame(cut_DT[flagLastCBG == 1]$ID, cut_DT[flagLastCBG == 1]$lessThan3_withinLastTime)
   colnames(report_y_hypo3) <- c("ID", "hypo_3")
+  ##****## report_y_death_3y <- data.frame(cut_DT[firstCBGperID == 1]$ID, cut_DT[firstCBGperID == 1]$isDead_3y)
+  ##****## colnames(report_y_death_3y) <- c("ID", "dead_3y")
   
 # scale admissions to n points
 #  cut_DT[, c("flag_for_processing") := (ifelse(dateplustime1 < (min(dateplustime1) + (admissionDuration[1] - timePeriodSeconds)), 1, 0)) , by=.(ID, admissionNumberFlag)]
+  
+##****##  # for death analysis - only analyse a single CBG dataset per ID - taking the first admission in the dataset
+##****##  # cut_DT_processSegment <- cut_DT[flagPartOfFirstAdmission == 1]
   
   cut_DT_processSegment <- cut_DT[flagWithinLastTime == 0]
   process_DT <- data.table(cut_DT_processSegment$ID, cut_DT_processSegment$admissionNumberFlag, cut_DT_processSegment$dateplustime1, cut_DT_processSegment$yyyy); colnames(process_DT) <- c("ID", "admissionNumberFlag", "dateplustime1", "yyyy")
@@ -146,7 +154,7 @@ deathFrameDT <- data.table(deathFrame)
   # y = approx(x$scaled_dateplustime1, x$yyyy, n = 1000)
 
   # ensure that report_y in same order as process_X
-  id_diff <- process_X[, 1] - report_y_hypo4[, 1]
+  id_diff <- process_X[, 1] - report_y_death_3y[, 1]
   ifelse(sum(id_diff) > 0, sum(id_diff), print("id match"))
   
   # save out input data (X) and (y)
@@ -157,6 +165,7 @@ deathFrameDT <- data.table(deathFrame)
   
   save_y_hypo4 <- report_y_hypo4$hypo_4
   save_y_hypo3 <- report_y_hypo3$hypo_3
+  save_y_dead3 <- report_y_death_3y$isDead_3y
   
   
   # randomisingSequence <- runif(nrow(report_y_hypo4), 0, 1)
