@@ -32,7 +32,7 @@ DT<-data.table(DT)
 # cut_DT <- DT[admissionDurationDays >= 5 & admissionDurationDays < 30 & nCBGperAdmission > 20]
 
       ## need to be able to take all admissions greater than n days and look at hypo probability on day n
-      dayN_ofInterest = 10
+      dayN_ofInterest = 5
       dayN_ofInterestSeconds <- dayN_ofInterest * (60*60*24)
       
       # limit dataset to admissions that will have the required data ie at least 5 days of data
@@ -70,6 +70,16 @@ DT<-data.table(DT)
     return(rep(flagPositiveResult, length(yyyy)))
   }
   
+  flag_CBGbelow_n_in24h_before_LastTime <- function(flagWithin_24h_prior_LastTime, yyyy, n) {
+    
+    lastimeValues <- yyyy[flagWithin_24h_prior_LastTime == 1]
+    returnVals <- ifelse(lastimeValues < n, 1, 0)
+    
+    flagPositiveResult <- ifelse(sum(returnVals) > 0, 1, 0)
+    
+    return(rep(flagPositiveResult, length(yyyy)))
+  }
+  
   isDead_n_years <- function(cut_DT_ID, dateplustime1, n) {
     
     if (nrow(deathFrameDT[ID == cut_DT_ID]) > 0) {
@@ -91,6 +101,10 @@ DT<-data.table(DT)
   cut_DT[, c("lessThan4_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 4), by=.(ID, admissionNumberFlag)]
   cut_DT[, c("lessThan3_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 3), by=.(ID, admissionNumberFlag)]
   cut_DT[, c("lessThan2p88_withinLastTime") := flag_CBGbelow_n_inLastTime(flagWithinLastTime, yyyy, 2.88), by=.(ID, admissionNumberFlag)]
+  
+  cut_DT[, c("flagWithin_24h_prior_LastTime") := (ifelse((dateplustime1 >= (min(dateplustime1) + ((max(dateplustime1) - min(dateplustime1)) - 2*timePeriodSeconds))) & (dateplustime1 < (min(dateplustime1) + ((max(dateplustime1) - min(dateplustime1)) - timePeriodSeconds))), 1, 0)) , by=.(ID, admissionNumberFlag)]
+  cut_DT[, c("lessThan4_within_24h_prior_LastTime") := flag_CBGbelow_n_in24h_before_LastTime(flagWithinLastTime, yyyy, 4), by=.(ID, admissionNumberFlag)]
+  
   
   # for death analysis run this
   ##****##  # cut_DT[, c("isDead_3y") := isDead_n_years(ID, dateplustime1, 3), by=.(ID, admissionNumberFlag)]
