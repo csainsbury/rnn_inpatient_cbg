@@ -1,38 +1,55 @@
 library(data.table)
 
+
+returnUnixDateTime<-function(date) {
+  returnVal<-as.numeric(as.POSIXct(date, format="%Y-%m-%d", tz="GMT"))
+  return(returnVal)
+}
+
+
 ## DM
 summaryOutputName <- paste("~/R/GlCoSy/source/DTwithPerIDdata.csv",sep="")
 DT<-read.csv(summaryOutputName, header=TRUE , sep="," , row.names=NULL)
 DT<-data.table(DT)
+
+# diagnosisDataset<-read.csv("../GlCoSy/SDsource/diagnosisDateDeathDate.txt")
+diagnosisDataset<-read.csv("~/R/GlCoSy/SDsource/demogALL.txt", quote = "", 
+                           row.names = NULL, 
+                           stringsAsFactors = FALSE)
+diagnosisDataset$deathDateUnix <- returnUnixDateTime(diagnosisDataset$DeathDate)
+deathFrame <- data.frame(diagnosisDataset$PatId, returnUnixDateTime$deathDateUnix)
 # firstRowAdmissions<-DT[CBGinSequencePerAdmission==1]
 
 # cut to admissions with ==20 CBG values
 # cut_DT <- DT[admissionDurationDays >= 5 & admissionDurationDays < 30 & nCBGperAdmission > 20]
 
-## need to be able to take all admissions greater than n days and look at hypo probability on day n
-dayN_ofInterest = 5
-
-dayN_ofInterestSeconds <- dayN_ofInterest * (60*60*24)
-
-cut_DT <- DT[admissionDurationDays > dayN_ofInterest]
-
-cut_DT[, c("flagWithinNdays") := (ifelse(dateplustime1 < (min(dateplustime1) + dayN_ofInterestSeconds), 1, 0)) , by=.(ID, admissionNumberFlag)]
-
-numberOfCBGsBeforeDayN <- function(dateplustime1) {
-   x <- dateplustime1[dateplustime1 < (min(dateplustime1) + (dayN_ofInterestSeconds - (60*60*24)))]
-   return(length(x))
-}
-
-cut_DT[, c("numberOfCBGsBeforeDayN") := numberOfCBGsBeforeDayN(dateplustime1) , by=.(ID, admissionNumberFlag)]
-
-cut_DT <- cut_DT[flagWithinNdays == 1 & numberOfCBGsBeforeDayN > 1]
+      ## need to be able to take all admissions greater than n days and look at hypo probability on day n
+      dayN_ofInterest = 5
+      dayN_ofInterestSeconds <- dayN_ofInterest * (60*60*24)
+      
+      # limit dataset to admissions that will have the required data ie at least 5 days of data
+      cut_DT <- DT[admissionDurationDays > dayN_ofInterest]
+      
+      # flag values within the window of interest - here 5 days (dayN_ofInterest ==  5)
+      cut_DT[, c("flagWithinNdays") := (ifelse(dateplustime1 < (min(dateplustime1) + dayN_ofInterestSeconds), 1, 0)) , by=.(ID, admissionNumberFlag)]
+      
+      # function and execution to ensure that there are more than 1 CBG values in the runin period (ie in days 0-4) - to make sure the code won't crash due to not being able to allocate a scaled time point.
+      numberOfCBGsBeforeDayN <- function(dateplustime1) {
+         x <- dateplustime1[dateplustime1 < (min(dateplustime1) + (dayN_ofInterestSeconds - (60*60*24)))]
+         return(length(x))
+      }
+      
+      cut_DT[, c("numberOfCBGsBeforeDayN") := numberOfCBGsBeforeDayN(dateplustime1) , by=.(ID, admissionNumberFlag)]
+      
+      # cut the data to values within 5 days, and with enough runin CBGs
+      cut_DT <- cut_DT[flagWithinNdays == 1 & numberOfCBGsBeforeDayN > 1]
 
 
 # optional cut for type of DM
 # cut_DT <- cut_DT[DiabetesMellitusType_Mapped == "Type 1 Diabetes Mellitus"]
 
 # take off last time period for calculation of y
-  timePeriodDays <- 1
+  timePeriodDays <- 1 # time of interest is last 24 hours in dataset - that corresponds to day 5 of admission
   timePeriodSeconds <- timePeriodDays * (60*60*24)
   
   flag_CBGbelow_n_inLastTime <- function(flagWithinLastTime, yyyy, n) {
