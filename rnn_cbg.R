@@ -47,11 +47,18 @@ DT<-data.table(DT)
          x <- dateplustime1[dateplustime1 < (min(dateplustime1) + (dayN_ofInterestSeconds - (60*60*24)))]
          return(length(x))
       }
-      
       cut_DT[, c("numberOfCBGsBeforeDayN") := numberOfCBGsBeforeDayN(dateplustime1) , by=.(ID, admissionNumberFlag)]
       
+      # find the odd case where there are only duplicate values in the analysis section
+      check_all_dateplustime1_different <- function(dateplustime1) {
+        x <- dateplustime1[dateplustime1 < (min(dateplustime1) + (dayN_ofInterestSeconds - (60*60*24)))]
+        y <- ifelse(sum(diff(x)) == 0, 0, 1)
+        return(y)
+      }
+      cut_DT[, c("check_all_dateplustime1_different") := check_all_dateplustime1_different(dateplustime1) , by=.(ID, admissionNumberFlag)]
+      
       # cut the data to values within 5 days, and with enough runin CBGs
-      cut_DT <- cut_DT[flagWithinNdays == 1 & numberOfCBGsBeforeDayN > 1]
+      cut_DT <- cut_DT[flagWithinNdays == 1 & numberOfCBGsBeforeDayN > 1 & check_all_dateplustime1_different == 1]
 
 
 # optional cut for type of DM
